@@ -1,0 +1,20 @@
+<%- include("header"); -%>
+<main>
+    <div class="form">
+        <p><%= message %></p>
+        <form action="/login" method="post">
+            <div class="form-label">
+                <label>Nick Name</label>
+                <input type="text" name="nickName">
+            </div>
+            <div class="form-label">
+                <label>Password</label>
+                <input type="password" name="password" id="myInput">
+                <input type="checkbox" onclick="myFunction()">Show Password
+            </div>
+            <button type="submit">Submit</button>
+        </form>
+    </div>
+</main>
+<script type="text/javascript" src="/index.js"></script>
+<%- include("footer"); -%>
