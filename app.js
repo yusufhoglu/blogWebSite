@@ -201,6 +201,7 @@ app.post("/login",(req,res)=> {
         bcrypt.compare(password,user.userPassword, (err, result) =>{
             if(result === true){
                 flag = true;
+                flag2 = true;
                 res.render("login",{title:"Log-in",message:"You have successfully loged in"})
             }else{
                 res.render("login",{title:"Log-in",message:"password arent matched"})
