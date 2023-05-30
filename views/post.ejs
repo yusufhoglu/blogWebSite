@@ -3,14 +3,28 @@
 <main>
     <article>
         <ul class="post-list">
+            <p><%=message%></p>
             <li><img src="<%=image%>"></li>
             <li><h class="article-title"><%=textTitle%></h></li>
             <li>
                 <div class="text-side">
                     <p class="article-text"><%=textPost%></p>
+                    <p><%= author %></p>
+                    <p><%= time %></p>
+                    <form action="/posts/<%=postID%>" method="post">
+                        <label>Comment</label>
+                        <textarea class="comment-form" name="comment" rows="10" cols="10"></textarea>
+                        <button type="submit">submit</button>
+                    </form>
+                    <h>COMMENTS:</h>
+                    <% for(var i = comments.length-1; i >= 0; i--){ %>
+                        <p><%= comments[i].Comment %><p/>
+                        <p><%= comments[i].Time %></p>
+                        <p><%= comments[i].Author %></p>
+                        <hr class="comment-divider">
+                    <% } %>
                 </div>
             </li>
-            <li><p><%= time %></p></li>
         </ul>
         
        

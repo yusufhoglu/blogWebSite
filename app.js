@@ -1,5 +1,6 @@
 require('dotenv').config()
 const express = require(`express`);
+const session = require('express-session');
 const bodyParser = require(`body-parser`);
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
@@ -7,8 +8,6 @@ const mongoose = require('mongoose');
 const multer  = require('multer')
 const bcrypt = require("bcrypt")
 const saltRounds =10;
-var flag = false;
-var flag2= false;
 const port = 3000;
 
 
@@ -18,6 +17,11 @@ const app = express();
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(express.static(__dirname+"/public"));
 app.set(`view engine`,`ejs`)
+app.use(session({
+    secret: process.env.SECRET_KEY,
+    resave: false,
+    saveUninitialized: false
+  }));
 
 // mongoDB
 const url = process.env.MONGODB_URL;
@@ -25,11 +29,22 @@ mongoose.connect(url,{useNewUrlParser: true})
 .then(()=> console.log("Connected!"));
 
 const Schema = mongoose.Schema;
+
+const CommentSchema = new Schema({
+    Author: String,
+    Comment: String,
+    Time: String
+})
+
+const Comment = mongoose.model("Comment",CommentSchema);
+
 const PostSchema= new Schema({
     ImageUrl: String,
     Title: String,
     Post: String,
-    Time: String
+    Time: String,
+    Author: String,
+    Comment: [CommentSchema]
 })
 const Post = mongoose.model(`Post`,PostSchema);
 
@@ -71,7 +86,7 @@ app.get("/",(req,res)=>{
 })
 
 app.get("/compose",(req,res)=>{
-    if(flag){
+    if(req.session.loggedIn){
         res.render("compose",{title:"Compose",message:"You can upload photos"});
     }else{
         res.redirect("/alert2")
@@ -96,6 +111,9 @@ app.post('/compose', (req, res, next) => {
         image = "";
     }
     const title = req.body.textTitle;
+    if(title.length >35){
+        return res.render("compose", { title: "Compose", message: "You can enter a maximum of 35 characters for title" });
+    }
     const post = req.body.textPost;
 
     // image control
@@ -107,7 +125,6 @@ app.post('/compose', (req, res, next) => {
         catch(error){
             return res.render("compose",{title:"Compose",message:"File type is not image or larger than 100 mb! FAİLED"});
         }
-        
     }
     //
     const now = new Date();
@@ -115,13 +132,17 @@ app.post('/compose', (req, res, next) => {
     const month = now.getMonth() + 1;
     const day = now.getDate();
     const formattedDate = `${day}/${month}/${year}`
-
+    //
+    var userName = req.session.userName;
     // save to mongoDB
+   
     const blogPost = new Post({
         ImageUrl:image.path,
         Title:title,
         Post:post,
-        Time:formattedDate
+        Time:formattedDate,
+        Author:userName,
+        Comment:[]
     })
 
     blogPost.save()
@@ -136,14 +157,58 @@ app.post('/compose', (req, res, next) => {
 
 app.get("/posts/:postID",(req,res)=>{
     const postID = req.params.postID;    
+
     Post.findById({_id:postID})
     .then(function(post){
-        res.render("post",{title:post.Title,textTitle:post.Title,textPost:post.Post,image:post.ImageUrl,time:post.Time});
+        res.render("post",{message:"",postID:postID,title:post.Title,textTitle:post.Title,textPost:post.Post,image:post.ImageUrl,time:post.Time,author:post.Author,comments:post.Comment});
     })
 })
 
+app.post("/posts/:postID",(req,res)=>{
+    const postID = req.params.postID;    
+    const comment = req.body.comment;
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    const formattedDate = `${day}/${month}/${year}`;
+    //Comment
+    if(!req.session.loggedIn){
+        Post.findById({_id:postID})
+        .then(function(post){
+            res.render("post",{message:"You must be logged in to comment!",postID:postID,title:post.Title,textTitle:post.Title,textPost:post.Post,image:post.ImageUrl,time:post.Time,author:post.Author,comments:post.Comment});
+        })
+    }else{
+        const userName = req.session.userName;
+        const comments = new Comment({
+            Author:userName,
+            Comment:comment,
+            Time:formattedDate
+        })
+        comments.save()
+        .then(() => {
+            Post.findById({_id:postID})
+            .then((post)=> {
+                post.Comment.push(comments)
+                return post.save();
+            })
+            .then(() => {
+                res.redirect("/posts/"+postID);
+              })
+              .catch((err) => {
+                res.send(err);
+              });
+        })
+        .catch((err)=>{
+            res.send(err);
+        })
+    }
+    
+})
+    
+
 app.get("/signin",(req,res) => {
-    if(!flag){
+    if(!req.session.loggedIn){
         res.render("signin",{title:"Sign-in",message:"Welcome!"})
     }else{
         res.redirect("/alert")
@@ -170,7 +235,6 @@ app.post("/signin",(req,res) => {
                 })
                 user.save()
                 .then(()=> {
-                    flag2 = true;
                     res.render("signin",{title:"Sign-in",message:"You have successfully registered"})
                 })
                 .catch((err) =>{
@@ -185,7 +249,7 @@ app.post("/signin",(req,res) => {
 })
 
 app.get("/login",(req,res)=>{
-    if(!flag){
+    if(!req.session.loggedIn){
         res.render("login",{title:"Log-in",message:"Welcome!"})
     }else{
         res.redirect("/alert");
@@ -200,16 +264,16 @@ app.post("/login",(req,res)=> {
     .then((user)=>{
         bcrypt.compare(password,user.userPassword, (err, result) =>{
             if(result === true){
-                flag = true;
-                flag2 = true;
+                req.session.userName = nickName;
+                req.session.loggedIn = true;
                 res.render("login",{title:"Log-in",message:"You have successfully loged in"})
             }else{
-                res.render("login",{title:"Log-in",message:"password arent matched"})
+                res.render("login",{title:"Log-in",message:"Wrong password"})
             }
         });
     })
     .catch((err)=>{
-        res.render("login",{title:"Log-in",message:"username is not registered"})
+        res.render("login",{title:"Log-in",message:"Username is not registered"})
     })
 })
 
@@ -218,7 +282,7 @@ app.get("/alert",(req,res)=>{
 })
 
 app.post("/alert",(req,res)=>{
-    flag = false;
+    req.session.loggedIn = false;
     res.redirect("/signin")
 })
 
