@@ -2,7 +2,7 @@
 <main>
     <div class="form">
         <p><%= message %></p>
-        <form action="/login" method="post">
+        <form action="/signin" method="post">
             <div class="form-label">
                 <label>Nick Name</label>
                 <input type="text" name="nickName">
@@ -12,9 +12,14 @@
                 <input type="password" name="password" id="myInput">
                 <input type="checkbox" onclick="myFunction()">Show Password
             </div>
+            <div class="form-label">
+                <label>Password</label>
+                <input type="password" name="password2" id="myInput2">
+                <input type="checkbox" onclick="myFunction2()">Show Password
+            </div>
             <button type="submit">Submit</button>
         </form>
     </div>
 </main>
-<script type="text/javascript" src="/index.js"></script>
+<script type="text/javascript" src="/styles.js"></script>
 <%- include("footer"); -%>
